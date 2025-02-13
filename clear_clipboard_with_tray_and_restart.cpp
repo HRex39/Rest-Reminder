@@ -3,9 +3,13 @@
 #include <chrono>
 #include <string>
 #include <ctime>
+#include <shlwapi.h>
+
+#pragma comment(lib, "Shlwapi.lib")
 
 #define ID_TRAY_EXIT 1001
 #define ID_TRAY_RESTART_EXPLORER 1002
+#define ID_TRAY_TOGGLE_STARTUP 1003
 #define MAX_RESTART_ATTEMPTS 5
 #define TOOLTIP_UPDATE_INTERVAL 60000 // 60秒
 
@@ -15,6 +19,7 @@ HWND hwndGlobal = NULL;
 UINT_PTR trayIconTimerId = 1;
 UINT_PTR tooltipUpdateTimerId = 2;
 int clearInterval = 60; // Interval in minutes to clear clipboard
+bool isStartupEnabled = false;
 
 void clearClipboard();
 void restartExplorer();
@@ -25,6 +30,9 @@ void removeTrayIcon();
 bool hasWallpaper();
 void showBalloonTip(const char* title, const char* msg);
 void formatTooltipMessage(char* buffer, int bufferSize, int minutesRemaining);
+void setStartup();
+void removeStartup();
+bool checkStartup();
 
 void clearClipboard() {
     if (OpenClipboard(nullptr)) {
@@ -90,6 +98,8 @@ void showBalloonTip(const char* title, const char* msg) {
 }
 
 void restartExplorerUntilWallpaper() {
+    restartExplorer();
+    Sleep(1000); // Wait for a second before checking again
     int restartAttempts = 0;
     while (!hasWallpaper() && restartAttempts < MAX_RESTART_ATTEMPTS) {
         restartExplorer();
@@ -115,6 +125,44 @@ void formatTooltipMessage(char* buffer, int bufferSize, int minutesRemaining) {
     sprintf_s(buffer, bufferSize, "Clipboard Clearer - Clears in %d minutes", minutesRemaining);
 }
 
+void setStartup() {
+    char exePath[MAX_PATH];
+    GetModuleFileName(NULL, exePath, MAX_PATH);
+
+    std::string taskCmd = "schtasks /create /f /tn \"ClipboardClearer\" /tr \"";
+    taskCmd += exePath;
+    taskCmd += "\" /sc onlogon /rl highest";
+    system(taskCmd.c_str());
+
+    isStartupEnabled = true;
+}
+
+void removeStartup() {
+    system("schtasks /delete /f /tn \"ClipboardClearer\"");
+    isStartupEnabled = false;
+}
+
+bool checkStartup() {
+    char exePath[MAX_PATH];
+    GetModuleFileName(NULL, exePath, MAX_PATH);
+
+    char cmd[1024];
+    sprintf_s(cmd, sizeof(cmd), "schtasks /query /tn \"ClipboardClearer\" /fo LIST | findstr /i \"%s\"", exePath);
+    return system(cmd) == 0;
+}
+
+void toggleStartup() {
+    if (isStartupEnabled) {
+        removeStartup();
+    } else {
+        setStartup();
+    }
+}
+
+void updateMenu() {
+    CheckMenuItem(hMenu, ID_TRAY_TOGGLE_STARTUP, isStartupEnabled ? MF_CHECKED : MF_UNCHECKED);
+}
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
         case WM_CREATE:
@@ -129,6 +177,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 POINT pt;
                 GetCursorPos(&pt);
                 SetForegroundWindow(hwnd);
+                updateMenu();
                 TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, NULL);
                 PostMessage(hwnd, WM_NULL, 0, 0);
             }
@@ -146,6 +195,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 DestroyWindow(hwnd);
             } else if (LOWORD(wParam) == ID_TRAY_RESTART_EXPLORER) {
                 std::thread(restartExplorerUntilWallpaper).detach();
+            } else if (LOWORD(wParam) == ID_TRAY_TOGGLE_STARTUP) {
+                toggleStartup();
+                updateMenu();
             }
             break;
         default:
@@ -155,6 +207,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    isStartupEnabled = checkStartup();
+
     std::thread clearingThread(scheduleClearing, clearInterval); // 1 hour interval
     clearingThread.detach();
 
@@ -164,6 +218,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     hMenu = CreatePopupMenu();
     AppendMenu(hMenu, MF_STRING, ID_TRAY_RESTART_EXPLORER, "Restart Explorer");
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_TOGGLE_STARTUP, "Toggle Startup");
     AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, "Exit");
 
     MSG msg;
