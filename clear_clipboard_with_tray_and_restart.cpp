@@ -10,8 +10,9 @@
 #define ID_TRAY_EXIT 1001
 #define ID_TRAY_RESTART_EXPLORER 1002
 #define ID_TRAY_TOGGLE_STARTUP 1003
+#define ID_TRAY_CLEAR_CLIPBOARD 1004 // New menu item ID
 #define MAX_RESTART_ATTEMPTS 5
-#define TOOLTIP_UPDATE_INTERVAL 60000 // 60秒
+#define TOOLTIP_UPDATE_INTERVAL 60000 // 60 seconds
 
 NOTIFYICONDATA nid;
 HMENU hMenu;
@@ -198,6 +199,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             } else if (LOWORD(wParam) == ID_TRAY_TOGGLE_STARTUP) {
                 toggleStartup();
                 updateMenu();
+            } else if (LOWORD(wParam) == ID_TRAY_CLEAR_CLIPBOARD) {
+                clearClipboard();
             }
             break;
         default:
@@ -219,6 +222,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     hMenu = CreatePopupMenu();
     AppendMenu(hMenu, MF_STRING, ID_TRAY_RESTART_EXPLORER, "Restart Explorer");
     AppendMenu(hMenu, MF_STRING, ID_TRAY_TOGGLE_STARTUP, "Toggle Startup");
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_CLEAR_CLIPBOARD, "Clear Clipboard"); // New menu item
     AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, "Exit");
 
     MSG msg;
