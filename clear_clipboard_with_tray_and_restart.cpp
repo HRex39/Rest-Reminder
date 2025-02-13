@@ -1,26 +1,37 @@
 #include <windows.h>
 #include <thread>
 #include <chrono>
+#include <string>
+#include <ctime>
 
 #define ID_TRAY_EXIT 1001
 #define ID_TRAY_RESTART_EXPLORER 1002
+#define MAX_RESTART_ATTEMPTS 5
+#define TOOLTIP_UPDATE_INTERVAL 60000 // 60秒
 
 NOTIFYICONDATA nid;
 HMENU hMenu;
 HWND hwndGlobal = NULL;
 UINT_PTR trayIconTimerId = 1;
+UINT_PTR tooltipUpdateTimerId = 2;
+int clearInterval = 60; // Interval in minutes to clear clipboard
 
 void clearClipboard();
 void restartExplorer();
 void scheduleClearing(int interval);
 void createTrayIcon(HWND hwnd);
+void updateTrayIconTooltip();
 void removeTrayIcon();
+bool hasWallpaper();
+void showBalloonTip(const char* title, const char* msg);
+void formatTooltipMessage(char* buffer, int bufferSize, int minutesRemaining);
 
 void clearClipboard() {
     if (OpenClipboard(nullptr)) {
         EmptyClipboard();
         CloseClipboard();
     }
+    updateTrayIconTooltip(); // 更新ToolTip
 }
 
 void restartExplorer() {
@@ -39,8 +50,8 @@ void restartExplorer() {
 
 void scheduleClearing(int interval) {
     while (true) {
+        std::this_thread::sleep_for(std::chrono::minutes(interval));
         clearClipboard();
-        std::this_thread::sleep_for(std::chrono::hours(interval));
     }
 }
 
@@ -49,15 +60,59 @@ void createTrayIcon(HWND hwnd) {
     nid.cbSize = sizeof(NOTIFYICONDATA);
     nid.hWnd = hwnd;
     nid.uID = 1001;
-    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_INFO;
     nid.uCallbackMessage = WM_USER + 1;
     nid.hIcon = LoadIcon(NULL, IDI_INFORMATION);
     strcpy_s(nid.szTip, "Clipboard Clearer");
     Shell_NotifyIcon(NIM_ADD, &nid);
+
+    updateTrayIconTooltip(); // 初始化时更新ToolTip
+    // Set a timer to update the tooltip every minute
+    SetTimer(hwnd, tooltipUpdateTimerId, TOOLTIP_UPDATE_INTERVAL, NULL);
 }
 
 void removeTrayIcon() {
     Shell_NotifyIcon(NIM_DELETE, &nid);
+}
+
+bool hasWallpaper() {
+    char wallpaperPath[MAX_PATH];
+    SystemParametersInfo(SPI_GETDESKWALLPAPER, MAX_PATH, wallpaperPath, 0);
+    return strlen(wallpaperPath) > 0;
+}
+
+void showBalloonTip(const char* title, const char* msg) {
+    nid.uFlags = NIF_INFO;
+    strcpy_s(nid.szInfoTitle, title);
+    strcpy_s(nid.szInfo, msg);
+    nid.dwInfoFlags = NIIF_ERROR;
+    Shell_NotifyIcon(NIM_MODIFY, &nid);
+}
+
+void restartExplorerUntilWallpaper() {
+    int restartAttempts = 0;
+    while (!hasWallpaper() && restartAttempts < MAX_RESTART_ATTEMPTS) {
+        restartExplorer();
+        Sleep(1000); // Wait for a second before checking again
+        restartAttempts++;
+    }
+    if (restartAttempts == MAX_RESTART_ATTEMPTS && !hasWallpaper()) {
+        showBalloonTip("Error", "Wallpaper not detected. Please check system settings.");
+    }
+}
+
+void updateTrayIconTooltip() {
+    time_t now = time(0);
+    tm *ltm = localtime(&now);
+    int minutesRemaining = clearInterval - (ltm->tm_min % clearInterval);
+    char tooltip[64];
+    formatTooltipMessage(tooltip, sizeof(tooltip), minutesRemaining);
+    strcpy_s(nid.szTip, tooltip);
+    Shell_NotifyIcon(NIM_MODIFY, &nid);
+}
+
+void formatTooltipMessage(char* buffer, int bufferSize, int minutesRemaining) {
+    sprintf_s(buffer, bufferSize, "Clipboard Clearer - Clears in %d minutes", minutesRemaining);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -82,13 +137,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             if (wParam == trayIconTimerId) {
                 createTrayIcon(hwnd);
                 KillTimer(hwnd, trayIconTimerId); // Stop the timer once the tray icon is recreated
+            } else if (wParam == tooltipUpdateTimerId) {
+                updateTrayIconTooltip(); // Update tooltip every minute
             }
             break;
         case WM_COMMAND:
             if (LOWORD(wParam) == ID_TRAY_EXIT) {
                 DestroyWindow(hwnd);
             } else if (LOWORD(wParam) == ID_TRAY_RESTART_EXPLORER) {
-                restartExplorer();
+                std::thread(restartExplorerUntilWallpaper).detach();
             }
             break;
         default:
@@ -98,7 +155,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    std::thread clearingThread(scheduleClearing, 1); // 1 hour interval
+    std::thread clearingThread(scheduleClearing, clearInterval); // 1 hour interval
     clearingThread.detach();
 
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WindowProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, "TrayIconClass", NULL };
