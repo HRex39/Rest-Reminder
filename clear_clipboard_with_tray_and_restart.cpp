@@ -24,6 +24,7 @@ UINT_PTR trayIconTimerId = 1;
 UINT_PTR tooltipUpdateTimerId = 2;
 int clearInterval = 60; // Interval in minutes to clear clipboard
 bool isStartupEnabled = false;
+time_t startTime; // Add startTime
 
 void clearClipboard();
 void restartExplorer();
@@ -33,7 +34,7 @@ void updateTrayIconTooltip();
 void removeTrayIcon();
 bool hasWallpaper();
 void showBalloonTip(const char* title, const char* msg);
-void formatTooltipMessage(char* buffer, int bufferSize, int minutesRemaining);
+void formatTooltipMessage(char* buffer, int bufferSize, int minutesWorked);
 void setStartup();
 void removeStartup();
 bool checkStartup();
@@ -118,16 +119,15 @@ void restartExplorerUntilWallpaper() {
 
 void updateTrayIconTooltip() {
     time_t now = time(0);
-    tm *ltm = localtime(&now);
-    int minutesRemaining = clearInterval - (ltm->tm_min % clearInterval);
+    int minutesWorked = (now - startTime) / 60;
     char tooltip[64];
-    formatTooltipMessage(tooltip, sizeof(tooltip), minutesRemaining);
+    formatTooltipMessage(tooltip, sizeof(tooltip), minutesWorked);
     strcpy_s(nid.szTip, tooltip);
     Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
-void formatTooltipMessage(char* buffer, int bufferSize, int minutesRemaining) {
-    sprintf_s(buffer, bufferSize, "Clipboard Clearer - Clears in %d minutes", minutesRemaining);
+void formatTooltipMessage(char* buffer, int bufferSize, int minutesWorked) {
+    sprintf_s(buffer, bufferSize, "You have been working for %d minutes", minutesWorked);
 }
 
 void setStartup() {
@@ -182,6 +182,9 @@ void showWorkNotification() {
     strcpy_s(nid.szInfo, "You have been working for 1 hour. Please take a break.");
     nid.dwInfoFlags = NIIF_INFO;
     Shell_NotifyIcon(NIM_MODIFY, &nid);
+
+    // 重置 startTime
+    startTime = time(0);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -233,6 +236,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     isStartupEnabled = checkStartup();
+
+    // 记录程序启动时间
+    startTime = time(0);
 
     std::thread clearingThread(scheduleClearing, clearInterval); // 1 hour interval
     clearingThread.detach();
