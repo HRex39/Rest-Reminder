@@ -4,6 +4,7 @@
 #include <string>
 #include <ctime>
 #include <shlwapi.h>
+#include <shlobj.h>
 
 #pragma comment(lib, "Shlwapi.lib")
 
@@ -130,26 +131,34 @@ void setStartup() {
     char exePath[MAX_PATH];
     GetModuleFileName(NULL, exePath, MAX_PATH);
 
-    std::string taskCmd = "schtasks /create /f /tn \"ClipboardClearer\" /tr \"";
-    taskCmd += exePath;
-    taskCmd += "\" /sc onlogon /rl highest";
-    system(taskCmd.c_str());
+    HKEY hKey;
+    RegOpenKey(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", &hKey);
+    RegSetValueEx(hKey, "ClipboardClearer", 0, REG_SZ, (BYTE*)exePath, strlen(exePath) + 1);
+    RegCloseKey(hKey);
 
     isStartupEnabled = true;
 }
 
 void removeStartup() {
-    system("schtasks /delete /f /tn \"ClipboardClearer\"");
+    HKEY hKey;
+    RegOpenKey(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", &hKey);
+    RegDeleteValue(hKey, "ClipboardClearer");
+    RegCloseKey(hKey);
+
     isStartupEnabled = false;
 }
 
 bool checkStartup() {
-    char exePath[MAX_PATH];
-    GetModuleFileName(NULL, exePath, MAX_PATH);
-
-    char cmd[1024];
-    sprintf_s(cmd, sizeof(cmd), "schtasks /query /tn \"ClipboardClearer\" /fo LIST | findstr /i \"%s\"", exePath);
-    return system(cmd) == 0;
+    HKEY hKey;
+    char value[MAX_PATH];
+    DWORD value_length = MAX_PATH;
+    RegOpenKey(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", &hKey);
+    if (RegQueryValueEx(hKey, "ClipboardClearer", NULL, NULL, (BYTE*)value, &value_length) == ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        return true;
+    }
+    RegCloseKey(hKey);
+    return false;
 }
 
 void toggleStartup() {
