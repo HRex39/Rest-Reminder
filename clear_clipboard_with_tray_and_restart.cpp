@@ -18,7 +18,7 @@
 #define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
 #define WORK_NOTIFICATION_TIMER_ID 3
 
-#define VERSION "4.2"
+#define VERSION "4.3 Beta"
 #define AUTHOR "Huang Chenrui"
 
 NOTIFYICONDATA nid;
@@ -188,6 +188,8 @@ void showWorkNotification() {
     strcpy_s(nid.szInfo, "You have been working for 1 hour. Please take a break.");
     nid.dwInfoFlags = NIIF_INFO;
     Shell_NotifyIcon(NIM_MODIFY, &nid);
+
+    updateTrayIconTooltip(); // 更新ToolTip
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
