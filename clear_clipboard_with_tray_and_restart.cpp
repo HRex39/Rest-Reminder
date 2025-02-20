@@ -14,11 +14,11 @@
 #define ID_TRAY_CLEAR_CLIPBOARD 1004 
 #define ID_TRAY_ABOUT 1005 // New menu item ID
 #define MAX_RESTART_ATTEMPTS 5
-#define TOOLTIP_UPDATE_INTERVAL 60000 // 60 seconds
+#define TOOLTIP_UPDATE_INTERVAL 1000 // 1 seconds
 #define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
 #define WORK_NOTIFICATION_TIMER_ID 3
 
-#define VERSION "4.3 Beta"
+#define VERSION "4.4 BugFix 20250221"
 #define AUTHOR "Huang Chenrui"
 
 NOTIFYICONDATA nid;
@@ -38,7 +38,7 @@ void updateTrayIconTooltip();
 void removeTrayIcon();
 bool hasWallpaper();
 void showBalloonTip(const char* title, const char* msg);
-void formatTooltipMessage(char* buffer, int bufferSize, int minutesWorked);
+void formatTooltipMessage(char* buffer, int bufferSize, int minutesWorked, int remainingSeconds);
 void setStartup();
 void removeStartup();
 bool checkStartup();
@@ -49,7 +49,6 @@ void clearClipboard() {
         EmptyClipboard();
         CloseClipboard();
     }
-    updateTrayIconTooltip(); // 更新ToolTip
 }
 
 void restartExplorer() {
@@ -81,7 +80,7 @@ void createTrayIcon(HWND hwnd) {
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_INFO;
     nid.uCallbackMessage = WM_USER + 1;
     nid.hIcon = LoadIcon(NULL, IDI_INFORMATION);
-    strcpy_s(nid.szTip, "Clipboard Clearer");
+    strcpy_s(nid.szTip, "Rest Reminder");
     Shell_NotifyIcon(NIM_ADD, &nid);
 
     updateTrayIconTooltip(); // 初始化时更新ToolTip
@@ -123,15 +122,18 @@ void restartExplorerUntilWallpaper() {
 
 void updateTrayIconTooltip() {
     time_t now = time(0);
-    int minutesWorked = (now - startTime) / 60;
+    int secondsWorked = static_cast<int>(now - startTime); // 获取工作秒数
+    int minutesWorked = secondsWorked / 60; // 转换为分钟
+    int remainingSeconds = secondsWorked % 60; // 获取剩余秒数
     char tooltip[64];
-    formatTooltipMessage(tooltip, sizeof(tooltip), minutesWorked);
+    formatTooltipMessage(tooltip, sizeof(tooltip), minutesWorked, remainingSeconds);
     strcpy_s(nid.szTip, tooltip);
+    nid.uFlags = NIF_TIP;
     Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
-void formatTooltipMessage(char* buffer, int bufferSize, int minutesWorked) {
-    sprintf_s(buffer, bufferSize, "You have been working for %d minutes", minutesWorked);
+void formatTooltipMessage(char* buffer, int bufferSize, int minutesWorked, int remainingSeconds) {
+    sprintf_s(buffer, bufferSize, "You have been working for %02d:%02d", minutesWorked, remainingSeconds);
 }
 
 void setStartup() {
@@ -183,13 +185,19 @@ void updateMenu() {
 void showWorkNotification() {
     // 重置 startTime
     startTime = time(0);
+    // Clear any existing notification
     nid.uFlags = NIF_INFO;
+    strcpy_s(nid.szInfoTitle, "");
+    strcpy_s(nid.szInfo, "");
+    Shell_NotifyIcon(NIM_MODIFY, &nid);
+
+    // Set up the new notification
     strcpy_s(nid.szInfoTitle, "Work Reminder");
     strcpy_s(nid.szInfo, "You have been working for 1 hour. Please take a break.");
     nid.dwInfoFlags = NIIF_INFO;
-    Shell_NotifyIcon(NIM_MODIFY, &nid);
 
-    updateTrayIconTooltip(); // 更新ToolTip
+    // Show the new notification
+    Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
