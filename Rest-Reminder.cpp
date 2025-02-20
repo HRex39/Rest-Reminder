@@ -18,7 +18,7 @@
 #define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
 #define WORK_NOTIFICATION_TIMER_ID 3
 
-#define VERSION "4.4 BugFix 20250221"
+#define VERSION "4.4 BugFix2 20250221"
 #define AUTHOR "Huang Chenrui"
 
 NOTIFYICONDATA nid;
@@ -192,7 +192,7 @@ void showWorkNotification() {
     Shell_NotifyIcon(NIM_MODIFY, &nid);
 
     // Set up the new notification
-    strcpy_s(nid.szInfoTitle, "Work Reminder");
+    strcpy_s(nid.szInfoTitle, "Rest Reminder");
     strcpy_s(nid.szInfo, "You have been working for 1 hour. Please take a break.");
     nid.dwInfoFlags = NIIF_INFO;
 
