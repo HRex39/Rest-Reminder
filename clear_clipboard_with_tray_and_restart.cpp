@@ -11,11 +11,15 @@
 #define ID_TRAY_EXIT 1001
 #define ID_TRAY_RESTART_EXPLORER 1002
 #define ID_TRAY_TOGGLE_STARTUP 1003
-#define ID_TRAY_CLEAR_CLIPBOARD 1004 // New menu item ID
+#define ID_TRAY_CLEAR_CLIPBOARD 1004 
+#define ID_TRAY_ABOUT 1005 // New menu item ID
 #define MAX_RESTART_ATTEMPTS 5
 #define TOOLTIP_UPDATE_INTERVAL 60000 // 60 seconds
 #define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
 #define WORK_NOTIFICATION_TIMER_ID 3
+
+#define VERSION "4.1"
+#define AUTHOR "Huang Chenrui"
 
 NOTIFYICONDATA nid;
 HMENU hMenu;
@@ -177,14 +181,13 @@ void updateMenu() {
 }
 
 void showWorkNotification() {
+    // 重置 startTime
+    startTime = time(0);
     nid.uFlags = NIF_INFO;
     strcpy_s(nid.szInfoTitle, "Work Reminder");
     strcpy_s(nid.szInfo, "You have been working for 1 hour. Please take a break.");
     nid.dwInfoFlags = NIIF_INFO;
     Shell_NotifyIcon(NIM_MODIFY, &nid);
-
-    // 重置 startTime
-    startTime = time(0);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -226,6 +229,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 updateMenu();
             } else if (LOWORD(wParam) == ID_TRAY_CLEAR_CLIPBOARD) {
                 clearClipboard();
+            } else if (LOWORD(wParam) == ID_TRAY_ABOUT) {
+                static bool aboutBoxShown = false;
+                if (!aboutBoxShown) {
+                    aboutBoxShown = true;
+                    char aboutMessage[256];
+                    sprintf_s(aboutMessage, sizeof(aboutMessage), "Rest Reminder\nVersion: %s\nAuthor: %s", VERSION, AUTHOR);
+                    MessageBox(hwnd, aboutMessage, "About", MB_OK | MB_ICONINFORMATION);
+                    aboutBoxShown = false;
+                }
             }
             break;
         default:
@@ -252,6 +264,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     AppendMenu(hMenu, MF_STRING, ID_TRAY_TOGGLE_STARTUP, "Toggle Startup");
     AppendMenu(hMenu, MF_STRING, ID_TRAY_CLEAR_CLIPBOARD, "Clear Clipboard"); // New menu item
     AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, "Exit");
+    AppendMenu(hMenu, MF_SEPARATOR, 0, NULL); // 添加分隔符
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_ABOUT, "About"); // 新增的“About”菜单项
 
     // Set a timer to show work notification every hour
     SetTimer(hwndGlobal, WORK_NOTIFICATION_TIMER_ID, WORK_NOTIFICATION_INTERVAL, NULL);
