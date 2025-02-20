@@ -14,6 +14,8 @@
 #define ID_TRAY_CLEAR_CLIPBOARD 1004 // New menu item ID
 #define MAX_RESTART_ATTEMPTS 5
 #define TOOLTIP_UPDATE_INTERVAL 60000 // 60 seconds
+#define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
+#define WORK_NOTIFICATION_TIMER_ID 3
 
 NOTIFYICONDATA nid;
 HMENU hMenu;
@@ -35,6 +37,7 @@ void formatTooltipMessage(char* buffer, int bufferSize, int minutesRemaining);
 void setStartup();
 void removeStartup();
 bool checkStartup();
+void showWorkNotification();
 
 void clearClipboard() {
     if (OpenClipboard(nullptr)) {
@@ -173,6 +176,14 @@ void updateMenu() {
     CheckMenuItem(hMenu, ID_TRAY_TOGGLE_STARTUP, isStartupEnabled ? MF_CHECKED : MF_UNCHECKED);
 }
 
+void showWorkNotification() {
+    nid.uFlags = NIF_INFO;
+    strcpy_s(nid.szInfoTitle, "Work Reminder");
+    strcpy_s(nid.szInfo, "You have been working for 1 hour. Please take a break.");
+    nid.dwInfoFlags = NIIF_INFO;
+    Shell_NotifyIcon(NIM_MODIFY, &nid);
+}
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
         case WM_CREATE:
@@ -198,6 +209,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 KillTimer(hwnd, trayIconTimerId); // Stop the timer once the tray icon is recreated
             } else if (wParam == tooltipUpdateTimerId) {
                 updateTrayIconTooltip(); // Update tooltip every minute
+            } else if (wParam == WORK_NOTIFICATION_TIMER_ID) {
+                showWorkNotification(); // Show work notification every hour
             }
             break;
         case WM_COMMAND:
@@ -233,6 +246,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     AppendMenu(hMenu, MF_STRING, ID_TRAY_TOGGLE_STARTUP, "Toggle Startup");
     AppendMenu(hMenu, MF_STRING, ID_TRAY_CLEAR_CLIPBOARD, "Clear Clipboard"); // New menu item
     AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, "Exit");
+
+    // Set a timer to show work notification every hour
+    SetTimer(hwndGlobal, WORK_NOTIFICATION_TIMER_ID, WORK_NOTIFICATION_INTERVAL, NULL);
 
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
