@@ -18,7 +18,7 @@
 #define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
 #define WORK_NOTIFICATION_TIMER_ID 3
 
-#define VERSION "4.1"
+#define VERSION "4.2"
 #define AUTHOR "Huang Chenrui"
 
 NOTIFYICONDATA nid;
