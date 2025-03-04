@@ -11,10 +11,10 @@
 #define ID_TRAY_EXIT 1001
 #define ID_TRAY_RESTART_EXPLORER 1002
 #define ID_TRAY_TOGGLE_STARTUP 1003
-#define ID_TRAY_CLEAR_TIMER 1004 // 修改菜单项ID
-#define ID_TRAY_ABOUT 1005 // New menu item ID
+#define ID_TRAY_CLEAR_TIMER 1004
+#define ID_TRAY_ABOUT 1005
 #define MAX_RESTART_ATTEMPTS 5
-#define TOOLTIP_UPDATE_INTERVAL 1000 // 1 seconds
+#define TOOLTIP_UPDATE_INTERVAL 1000 // 1 second
 #define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
 #define WORK_NOTIFICATION_TIMER_ID 3
 
@@ -28,7 +28,7 @@ UINT_PTR trayIconTimerId = 1;
 UINT_PTR tooltipUpdateTimerId = 2;
 int clearInterval = 60; // Interval in minutes to clear clipboard
 bool isStartupEnabled = false;
-time_t startTime; // Add startTime
+time_t startTime;
 
 void clearClipboard();
 void restartExplorer();
@@ -43,7 +43,10 @@ void setStartup();
 void removeStartup();
 bool checkStartup();
 void showWorkNotification();
-void clearTimer(); // 新增函数声明
+void clearTimer();
+void updateMenu();
+void toggleStartup();
+void restartExplorerUntilWallpaper();
 
 void clearClipboard() {
     if (OpenClipboard(nullptr)) {
@@ -53,7 +56,6 @@ void clearClipboard() {
 }
 
 void restartExplorer() {
-    // Use CreateProcess to restart Explorer without affecting the current process
     STARTUPINFO si = { sizeof(si) };
     PROCESS_INFORMATION pi;
     system("taskkill /f /im explorer.exe");
@@ -103,7 +105,7 @@ void showBalloonTip(const char* title, const char* msg) {
     nid.uFlags = NIF_INFO;
     strcpy_s(nid.szInfoTitle, title);
     strcpy_s(nid.szInfo, msg);
-    nid.dwInfoFlags = NIIF_ERROR;
+    nid.dwInfoFlags = NIIF_INFO;
     Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
@@ -203,6 +205,12 @@ void showWorkNotification() {
 
 void clearTimer() {
     startTime = time(0); // 重置计时器
+    // Clear any existing notification
+    nid.uFlags = NIF_INFO;
+    strcpy_s(nid.szInfoTitle, "");
+    strcpy_s(nid.szInfo, "");
+    Shell_NotifyIcon(NIM_MODIFY, &nid);
+
     updateTrayIconTooltip(); // 更新ToolTip
     showBalloonTip("Timer Cleared", "The timer has been cleared.");
 
@@ -228,6 +236,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 updateMenu();
                 TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, NULL);
                 PostMessage(hwnd, WM_NULL, 0, 0);
+            } else if (LOWORD(lParam) == WM_LBUTTONDBLCLK) {
+                clearTimer(); // 双击左键清除计时器
             }
             break;
         case WM_TIMER:
@@ -248,7 +258,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             } else if (LOWORD(wParam) == ID_TRAY_TOGGLE_STARTUP) {
                 toggleStartup();
                 updateMenu();
-            } else if (LOWORD(wParam) == ID_TRAY_CLEAR_TIMER) { // 修改菜单项功能
+            } else if (LOWORD(wParam) == ID_TRAY_CLEAR_TIMER) {
                 clearTimer();
             } else if (LOWORD(wParam) == ID_TRAY_ABOUT) {
                 static bool aboutBoxShown = false;
@@ -281,12 +291,12 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     hwndGlobal = CreateWindow("TrayIconClass", "TrayIcon", WS_OVERLAPPEDWINDOW, 0, 0, 300, 200, NULL, NULL, wc.hInstance, NULL);
 
     hMenu = CreatePopupMenu();
-    AppendMenu(hMenu, MF_STRING, ID_TRAY_RESTART_EXPLORER, "Restart Explorer");
-    AppendMenu(hMenu, MF_STRING, ID_TRAY_TOGGLE_STARTUP, "Toggle Startup");
-    AppendMenu(hMenu, MF_STRING, ID_TRAY_CLEAR_TIMER, "Clear Timer"); // 修改菜单项名称
-    AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, "Exit");
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_ABOUT, "About");
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_TOGGLE_STARTUP, "Auto Startup");
     AppendMenu(hMenu, MF_SEPARATOR, 0, NULL); // 添加分隔符
-    AppendMenu(hMenu, MF_STRING, ID_TRAY_ABOUT, "About"); // 新增的“About”菜单项
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_RESTART_EXPLORER, "Restart Explorer");
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_CLEAR_TIMER, "Clear Timer");
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, "Exit");
 
     // Set a timer to show work notification every hour
     SetTimer(hwndGlobal, WORK_NOTIFICATION_TIMER_ID, WORK_NOTIFICATION_INTERVAL, NULL);
