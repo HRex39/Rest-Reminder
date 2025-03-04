@@ -18,7 +18,7 @@ Rest Reminder 是一个 Windows 应用程序，帮助您通过定期通知和清
 
 1. 克隆仓库:
     ```sh
-    git clone https://github.com/yourusername/rest-reminder.git
+    git clone https://github.com/hrex39/rest-reminder.git
     cd rest-reminder
     ```
 

@@ -18,7 +18,7 @@ Rest Reminder is a Windows application that helps you manage your work and rest 
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/rest-reminder.git
+    git clone https://github.com/hrex39/rest-reminder.git
     cd rest-reminder
     ```
 
