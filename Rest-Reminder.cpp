@@ -18,7 +18,7 @@
 #define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
 #define WORK_NOTIFICATION_TIMER_ID 3
 
-#define VERSION "4.4 BugFix2 20250221"
+#define VERSION "4.5 BugFix3 20250305"
 #define AUTHOR "Huang Chenrui"
 
 NOTIFYICONDATA nid;
@@ -203,6 +203,12 @@ void showWorkNotification() {
 
 void clearTimer() {
     startTime = time(0); // 重置计时器
+    updateTrayIconTooltip(); // 更新ToolTip
+    showBalloonTip("Timer Cleared", "The timer has been cleared.");
+
+    // 重新启动计时器
+    KillTimer(hwndGlobal, WORK_NOTIFICATION_TIMER_ID);
+    SetTimer(hwndGlobal, WORK_NOTIFICATION_TIMER_ID, WORK_NOTIFICATION_INTERVAL, NULL);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
