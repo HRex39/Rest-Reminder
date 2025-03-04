@@ -11,7 +11,7 @@
 #define ID_TRAY_EXIT 1001
 #define ID_TRAY_RESTART_EXPLORER 1002
 #define ID_TRAY_TOGGLE_STARTUP 1003
-#define ID_TRAY_CLEAR_CLIPBOARD 1004 
+#define ID_TRAY_CLEAR_TIMER 1004 // 修改菜单项ID
 #define ID_TRAY_ABOUT 1005 // New menu item ID
 #define MAX_RESTART_ATTEMPTS 5
 #define TOOLTIP_UPDATE_INTERVAL 1000 // 1 seconds
@@ -43,6 +43,7 @@ void setStartup();
 void removeStartup();
 bool checkStartup();
 void showWorkNotification();
+void clearTimer(); // 新增函数声明
 
 void clearClipboard() {
     if (OpenClipboard(nullptr)) {
@@ -200,6 +201,10 @@ void showWorkNotification() {
     Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
+void clearTimer() {
+    startTime = time(0); // 重置计时器
+}
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
         case WM_CREATE:
@@ -237,8 +242,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             } else if (LOWORD(wParam) == ID_TRAY_TOGGLE_STARTUP) {
                 toggleStartup();
                 updateMenu();
-            } else if (LOWORD(wParam) == ID_TRAY_CLEAR_CLIPBOARD) {
-                clearClipboard();
+            } else if (LOWORD(wParam) == ID_TRAY_CLEAR_TIMER) { // 修改菜单项功能
+                clearTimer();
             } else if (LOWORD(wParam) == ID_TRAY_ABOUT) {
                 static bool aboutBoxShown = false;
                 if (!aboutBoxShown) {
@@ -272,7 +277,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     hMenu = CreatePopupMenu();
     AppendMenu(hMenu, MF_STRING, ID_TRAY_RESTART_EXPLORER, "Restart Explorer");
     AppendMenu(hMenu, MF_STRING, ID_TRAY_TOGGLE_STARTUP, "Toggle Startup");
-    AppendMenu(hMenu, MF_STRING, ID_TRAY_CLEAR_CLIPBOARD, "Clear Clipboard"); // New menu item
+    AppendMenu(hMenu, MF_STRING, ID_TRAY_CLEAR_TIMER, "Clear Timer"); // 修改菜单项名称
     AppendMenu(hMenu, MF_STRING, ID_TRAY_EXIT, "Exit");
     AppendMenu(hMenu, MF_SEPARATOR, 0, NULL); // 添加分隔符
     AppendMenu(hMenu, MF_STRING, ID_TRAY_ABOUT, "About"); // 新增的“About”菜单项
