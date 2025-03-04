@@ -1,3 +1,5 @@
+#define _WIN32_WINNT 0x0600
+
 #include <windows.h>
 #include <thread>
 #include <chrono>
@@ -18,7 +20,7 @@
 #define WORK_NOTIFICATION_INTERVAL 3600000 // 1 hour in milliseconds
 #define WORK_NOTIFICATION_TIMER_ID 3
 
-#define VERSION "4.5 BugFix3 20250305"
+#define VERSION "20250305 V4.5"
 #define AUTHOR "Huang Chenrui"
 
 NOTIFYICONDATA nid;
@@ -278,6 +280,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    // 启用 DPI 感知
+    SetProcessDPIAware();
+
     isStartupEnabled = checkStartup();
 
     // 记录程序启动时间
@@ -287,6 +292,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     clearingThread.detach();
 
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WindowProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, "TrayIconClass", NULL };
+    wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION); // 设置小图标
     RegisterClassEx(&wc);
     hwndGlobal = CreateWindow("TrayIconClass", "TrayIcon", WS_OVERLAPPEDWINDOW, 0, 0, 300, 200, NULL, NULL, wc.hInstance, NULL);
 
